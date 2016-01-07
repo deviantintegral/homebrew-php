@@ -17,7 +17,26 @@ class Phpunit < Formula
   def install
     libexec.install "phpunit-#{version}.phar"
     sh = libexec + "phpunit"
-    sh.write("#!/usr/bin/env bash\n\n/usr/bin/env php -d allow_url_fopen=On -d detect_unicode=Off #{libexec}/phpunit-#{version}.phar $*")
+
+    wrapper = <<END
+#!/usr/bin/env bash
+
+PHP_VERSION=$(/usr/bin/env php -r 'echo PHP_MAJOR_VERSION . PHP_MINOR_VERSION;')
+XDEBUG_SO=/usr/local/opt/php$PHP_VERSION-xdebug/xdebug.so
+
+# Enable xdebug even if it's disabled to allow for code coverage reports. This
+# lets xdebug be disabled for 'normal' CLI requests, resulting in significant
+# performance improvements for Composer.
+# https://getcomposer.org/doc/articles/troubleshooting.md#xdebug-impact-on-composer
+if [ -e $XDEBUG_SO ]
+then
+    XDEBUG=-dzend_extension=$XDEBUG_SO
+fi
+
+echo /usr/bin/env php $XDEBUG -d allow_url_fopen=On -d detect_unicode=Off #{libexec}/phpunit-#{version}.phar $*
+END
+
+    sh.write(wrapper)
     chmod 0755, sh
     bin.install_symlink sh
   end
